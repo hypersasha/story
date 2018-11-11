@@ -47,6 +47,10 @@ let scenesConfig = {
             name: 'fadeOut',
             duration: 2000
         }
+    },
+    "typing-scene": {
+        id: "typing-scene",
+        visible: false
     }
 };
 

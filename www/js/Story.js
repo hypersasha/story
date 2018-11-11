@@ -71,7 +71,8 @@ StoryLoader.library = [
         story: 'astroneer-episode-1',
         storyLink: 'assets/stories/nwre0x2g.json',
         episodeSubtitle: 'эпизод 1',
-        episodeTitle: 'Сквозь звёзды'
+        episodeTitle: 'Сквозь звёзды',
+        hero: "Скотт Майлз"
     }
 ];
 
@@ -80,12 +81,13 @@ class Story {
         this.progress = null;
         this.story = null;
         this.sceneManager = sm;
+        this.hero;
     }
 
     LoadProgress() {
 
         // Show Darker TODO: uncomment
-        //this.sceneManager.ShowDarker();
+        // this.sceneManager.ShowDarker();
 
         let progress = StoryLoader.GetUserProgress();
         console.log('User progress: ', progress);
@@ -105,6 +107,7 @@ class Story {
 
     LoadStoryFromBranchTrack() {
         if (this.progress.story) {
+            this.hero = StoryLoader.GetStoryById(this.progress.story)[0].hero;
             StoryLoader.LoadStory(this.progress.story)
                 .then((result) => {
                     this.story = result;
@@ -135,9 +138,40 @@ class Story {
     }
 
     LoadStoryNode(node_id) {
+        console.log('Loading next node...');
         let node = this.GetNodeById(node_id)[0];
+        if (!node) {
+            console.error("Could not find node " + node_id);
+            return false;
+        }
+
+        console.log(node);
+        // Parse feedback
+        let typingDelay = 2000;
+        let author = undefined;
+        if (node.feedback) {
+            let feedback = this.ParseFeedback(node.feedback);
+            if (feedback) {
+                if (feedback.delay) typingDelay = parseInt(feedback.delay) || 2000;
+                if (feedback.author) author = feedback.author.toString();
+            }
+        }
+
         let edges = this.GetEdgesByIds(node.edges);
-        node = new StoryNode(node, edges);
+
+        // Show typing scene
+        this.sceneManager.ShowSceneById('typing-scene');
+        document.getElementById('typing-scene').scrollIntoView({behavior: "smooth"});
+
+
+        setTimeout(() => {
+            this.sceneManager.HideSceneById('typing-scene');
+            node = new StoryNode(node, edges, this, author);
+        }, typingDelay);
+    }
+
+    ParseFeedback(feedback) {
+        return JSON.parse(feedback);
     }
 
     GetNodeById(id) {
@@ -155,16 +189,18 @@ class Story {
             this.sceneManager.ShowSceneById('game-rules');
             setTimeout(() => {
                 this.sceneManager.HideSceneById('game-rules');
+                setTimeout(() => {this.LoadCurrentStoryNode();}, 2000);
             }, 7000);
         }, 3000);
     }
 }
 
 class StoryNode {
-    constructor(node, edges) {
+    constructor(node, edges, story, author) {
         this.node = node;
-        this.edges = new NodeEdges(edges);
-        this.message = this.CreateMessage(this.node.content, 'Том Фелпс');
+        this.story = story;
+        this.edges = new NodeEdges(edges, story, author);
+        this.message = this.CreateMessage(this.node.content, (author !== undefined ? author : this.story.hero));
         this.chatNode = this.CreateChatNode();
         this.PrintMessage();
     }
@@ -184,12 +220,9 @@ class StoryNode {
         msg.appendChild(msgText);
         msg.appendChild(msgAuthor);
 
-        // Create reply
-        let replyBox = document.createElement('div');
-        replyBox.className = 'reply-box animated delay-1s fadeIn';
-        replyBox.appendChild(this.edges.GetEdges());
 
-        msg.appendChild(replyBox);
+        // Append reply box
+        msg.appendChild(this.edges.GetEdges());
 
         return msg;
     }
@@ -205,20 +238,36 @@ class StoryNode {
     PrintMessage() {
         let chat = document.getElementById('chat');
         chat.appendChild(this.chatNode);
+        $(this.chatNode).scrollintoview();
     }
 }
 
 class NodeEdges {
-    constructor(edges) {
-        this.edges = document.createElement('div');
-        this.edges.className = 'replies';
+    constructor(edges, story, author) {
+
+        this.answered = false;
+        this.story = story;
+
+        this.replyBox = document.createElement('div');
+        this.replyBox.className = 'reply-box animated delay-1s fadeIn';
+
+        this.replies = document.createElement('div');
+        this.replies.className = 'replies';
         edges.map(edge => {
-            this.edges.appendChild(this.CreateEdgeButton(edge));
+            this.replies.appendChild(this.CreateEdgeButton(edge));
         });
+
+        // Lets add hint
+        this.hint = document.createElement('div');
+        this.hint.className = 'hint';
+        this.hint.innerHTML = (author !== undefined ? author : this.story.hero.split(' ')[0]) + ' ждёт Вашего ответа';
+        this.replyBox.appendChild(this.hint);
+
+        this.replyBox.appendChild(this.replies);
     }
 
     GetEdges() {
-        return this.edges;
+        return this.replyBox;
     }
 
     CreateEdgeButton(edge) {
@@ -226,7 +275,24 @@ class NodeEdges {
         elem.id = 'edge-' + edge.id;
         elem.className = 'replies--button';
         elem.innerHTML = edge.content;
+        elem.addEventListener('touchend', () => {
+            this.OnReply(elem, edge);
+        });
 
         return elem;
+    }
+
+    OnReply(button, edge) {
+        if (this.answered === false) {
+            console.log('Reply registered! Edge:');
+            console.log(edge);
+            this.answered = true;
+            button.classList.add('activated');
+            this.replyBox.classList.add('answered');
+            this.hint.innerHTML = 'Вы ответили';
+
+            // Load next node
+            this.story.LoadStoryNode(edge.to_node_id);
+        }
     }
 }

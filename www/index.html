@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="styles/common.css">
     <link rel="stylesheet" href="styles/story.css">
     <link rel="stylesheet" href="styles/chat.css">
+    <script type="text/javascript" src="js/jquery-3.3.1.min.js"></script>
+    <script type="text/javascript" src="js/jquery.scrollintoview.min.js"></script>
     <title>Story</title>
 </head>
 <body>
@@ -43,18 +45,25 @@
             <div id="start-story" class="start-story no-select">Начать историю</div>
         </div>
         <div id="chat" class="chat-container">
-            <div class="chat-node animated fadeIn">
-                <div class="message">
-                    <div class="message-text">Это простейший текст сообщения.</div>
-                    <div class="message-author">Том Фелпс</div>
-                    <!-- Replies -->
-                    <div class="reply-box animated delay-1s fadeIn">
-                        <div class="hint">Том ждёт Вашего ответа</div>
-                        <div class="replies">
-                            <div class="replies--button">Ответ</div>
-                        </div>
-                    </div>
-                </div>
+            <!--<div class="chat-node animated fadeIn">-->
+                <!--<div class="message">-->
+                    <!--<div class="message-text">Это простейший текст сообщения.</div>-->
+                    <!--<div class="message-author">Том Фелпс</div>-->
+                    <!--&lt;!&ndash; Replies &ndash;&gt;-->
+                    <!--<div class="reply-box animated delay-1s fadeIn">-->
+                        <!--<div class="hint">Том ждёт Вашего ответа</div>-->
+                        <!--<div class="replies">-->
+                            <!--<div class="replies&#45;&#45;button">Ответ</div>-->
+                        <!--</div>-->
+                    <!--</div>-->
+                <!--</div>-->
+            <!--</div>-->
+        </div>
+        <div id="typing-scene" class="now-typing">
+            <div class="wave">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
             </div>
         </div>
     </div>
