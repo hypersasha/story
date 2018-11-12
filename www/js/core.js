@@ -25,7 +25,7 @@ let scenesConfig = {
         }
     },
     "intro-scene": {
-        visible: false,
+        visible: true,
         id: "intro-scene",
         showAnimation: {
             name: 'fadeIn',
@@ -58,12 +58,18 @@ let sceneManager = new SceneManager(scenesConfig);
 sceneManager.InitScenes();
 // sceneManager.ShowSceneById('intro-scene');
 
-// Getting start button
+// Getting start button & reset button
 let startButton = document.getElementById('start-story');
+let resetButton = document.getElementById('reset-progress');
 
 let uiController = new UIController();
-uiController.OnButtonPressed(startButton, 'pressed');
-uiController.OnButtonReleased(startButton, 'pressed', () => {startStory()});
+uiController.OnButtonPressed(startButton, null, 'pressed');
+uiController.OnButtonReleased(startButton, () => {startStory()}, 'pressed');
+uiController.OnButtonReleased(resetButton, () => {
+    StoryLoader.RemoveUserProgress();
+    startButton.innerHTML = 'Начать историю';
+    resetButton.style.display = 'none';
+});
 
 let story;
 
@@ -72,4 +78,10 @@ function startStory() {
     story.LoadProgress();
 }
 
-startStory();
+if (StoryLoader.CheckUserProgress()) {
+    startButton.innerHTML = 'Продолжить историю';
+} else {
+    resetButton.style.display = 'none';
+}
+
+// startStory();

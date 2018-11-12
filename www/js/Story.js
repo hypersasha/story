@@ -4,7 +4,28 @@ class StoryLoader {
 
     static GetUserProgress() {
         let progress = localStorage.getItem('user-progress');
+        progress = JSON.parse(progress);
         return progress;
+    }
+
+    static CheckUserProgress() {
+        let progress = StoryLoader.GetUserProgress();
+        if (progress && progress.story && progress.nodes.length > 0) {
+            console.info('User has some progress in story ' + progress.story);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    static SaveUserProgress(progress) {
+        console.log('Saving user progress...');
+        let saveResult = localStorage.setItem('user-progress', JSON.stringify(progress));
+        console.log('Saving result: ', saveResult);
+    }
+
+    static RemoveUserProgress() {
+        localStorage.removeItem('user-progress');
     }
 
     static GetFirstEpisode() {
@@ -78,25 +99,26 @@ StoryLoader.library = [
 
 class Story {
     constructor(sm) {
-        this.progress = null;
+        this.progress = {
+            story: null,
+            nodes: []
+        };
         this.story = null;
         this.sceneManager = sm;
-        this.hero;
+        this.hero = undefined;
     }
 
     LoadProgress() {
 
         // Show Darker TODO: uncomment
-        // this.sceneManager.ShowDarker();
+        this.sceneManager.ShowDarker();
 
         let progress = StoryLoader.GetUserProgress();
         console.log('User progress: ', progress);
 
         if (!progress || progress === null || progress === undefined) {
             console.log('Cannot find user progress. Starting from episode 1.');
-            this.progress = {
-                story: StoryLoader.GetFirstEpisode().story
-            };
+            this.progress.story = StoryLoader.GetFirstEpisode().story;
         } else {
             this.progress = progress;
         }
@@ -117,9 +139,9 @@ class Story {
                     document.getElementById('episode-maintitle').innerHTML = StoryLoader.GetStoryById(this.progress.story)[0].episodeTitle;
 
                     // TODO: uncomment
-                    // this.PlayIntroScenes();
+                    this.PlayIntroScenes();
 
-                    this.LoadCurrentStoryNode();
+                    // this.PreloadStoryFromProgress();
                 })
                 .catch((error) => {});
         } else {
@@ -127,17 +149,19 @@ class Story {
         }
     }
 
-    LoadCurrentStoryNode() {
-        if (this.progress.storyNode && this.progress.storyNode > 0) {
-            this.LoadStoryNode(this.progress.storyNode);
+    PreloadStoryFromProgress() {
+        if (this.progress.nodes && this.progress.nodes.length > 0) {
+            let nodes = this.progress.nodes;
+            nodes.forEach((p_node, it) => {
+                this.LoadStoryNode(p_node, (nodes[it + 1] ? nodes[it + 1] : true)); // second argument is Preload flag
+            });
         } else {
             let initialNode = this.story.nodes[this.story.initial_node_index - 1];
-            this.progress.storyNode = initialNode.id;
-            this.LoadStoryNode(this.progress.storyNode);
+            this.LoadStoryNode(initialNode.id);
         }
     }
 
-    LoadStoryNode(node_id) {
+    LoadStoryNode(node_id, preload) {
         console.log('Loading next node...');
         let node = this.GetNodeById(node_id)[0];
         if (!node) {
@@ -146,6 +170,23 @@ class Story {
         }
 
         console.log(node);
+
+        // Update user progress
+        // We don't need to change user progress on story preload.
+        if (!preload) {
+            console.log("Updating user progress...");
+
+            if (!this.progress.nodes) {
+                this.progress.nodes = [];
+            }
+
+            this.progress.nodes.push(node_id);
+            console.log(this.progress);
+
+            // Save user progress
+            StoryLoader.SaveUserProgress(this.progress);
+        }
+
         // Parse feedback
         let typingDelay = 2000;
         let author = undefined;
@@ -160,14 +201,19 @@ class Story {
         let edges = this.GetEdgesByIds(node.edges);
 
         // Show typing scene
-        this.sceneManager.ShowSceneById('typing-scene');
-        document.getElementById('typing-scene').scrollIntoView({behavior: "smooth"});
+        // But only in story mode, not preload
+        if (!preload) {
+            this.sceneManager.ShowSceneById('typing-scene');
+            document.getElementById('typing-scene').scrollIntoView({behavior: "smooth"});
 
-
-        setTimeout(() => {
-            this.sceneManager.HideSceneById('typing-scene');
-            node = new StoryNode(node, edges, this, author);
-        }, typingDelay);
+            setTimeout(() => {
+                this.sceneManager.HideSceneById('typing-scene');
+                node = new StoryNode(node, edges, this, author);
+            }, typingDelay);
+        } else {
+            // Just show story node
+            node = new StoryNode(node, edges, this, author, preload);
+        }
     }
 
     ParseFeedback(feedback) {
@@ -189,17 +235,17 @@ class Story {
             this.sceneManager.ShowSceneById('game-rules');
             setTimeout(() => {
                 this.sceneManager.HideSceneById('game-rules');
-                setTimeout(() => {this.LoadCurrentStoryNode();}, 2000);
+                setTimeout(() => {this.PreloadStoryFromProgress();}, 2000);
             }, 7000);
         }, 3000);
     }
 }
 
 class StoryNode {
-    constructor(node, edges, story, author) {
+    constructor(node, edges, story, author, preload) {
         this.node = node;
         this.story = story;
-        this.edges = new NodeEdges(edges, story, author);
+        this.edges = new NodeEdges(edges, story, author, preload);
         this.message = this.CreateMessage(this.node.content, (author !== undefined ? author : this.story.hero));
         this.chatNode = this.CreateChatNode();
         this.PrintMessage();
@@ -243,24 +289,26 @@ class StoryNode {
 }
 
 class NodeEdges {
-    constructor(edges, story, author) {
+    constructor(edges, story, author, preload) {
 
-        this.answered = false;
+        this.answered = !(typeof (preload) !== 'number');
         this.story = story;
 
         this.replyBox = document.createElement('div');
-        this.replyBox.className = 'reply-box animated delay-1s fadeIn';
+        this.replyBox.className = 'reply-box animated delay-1s fadeIn' + (typeof (preload) === 'number' ? ' answered' : '');
 
         this.replies = document.createElement('div');
         this.replies.className = 'replies';
         edges.map(edge => {
-            this.replies.appendChild(this.CreateEdgeButton(edge));
+            this.replies.appendChild(this.CreateEdgeButton(edge, preload));
         });
 
         // Lets add hint
         this.hint = document.createElement('div');
         this.hint.className = 'hint';
-        this.hint.innerHTML = (author !== undefined ? author : this.story.hero.split(' ')[0]) + ' ждёт Вашего ответа';
+        let hintTextWaiting = (author !== undefined ? author : this.story.hero.split(' ')[0]) + ' ждёт Вашего ответа';
+        let hintTextDone = "Вы ответили";
+        this.hint.innerHTML = (typeof (preload) !== 'number' ? hintTextWaiting : hintTextDone);
         this.replyBox.appendChild(this.hint);
 
         this.replyBox.appendChild(this.replies);
@@ -270,10 +318,10 @@ class NodeEdges {
         return this.replyBox;
     }
 
-    CreateEdgeButton(edge) {
+    CreateEdgeButton(edge, preload) {
         let elem = document.createElement('div');
         elem.id = 'edge-' + edge.id;
-        elem.className = 'replies--button';
+        elem.className = 'replies--button' + (edge.to_node_id === preload ? ' activated' : '');
         elem.innerHTML = edge.content;
         elem.addEventListener('touchend', () => {
             this.OnReply(elem, edge);

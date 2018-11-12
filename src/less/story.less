@@ -22,8 +22,8 @@
   }
 
   .astroneer-logo {
-    width: 178px;
-    height: 170px;
+    width: 145px;
+    height: 142px;
     background: url(../assets/imgs/Astronaut.png);
     background-size: contain;
     margin: 50px auto 20px auto;
@@ -43,10 +43,10 @@
     font-size: 14px;
     line-height: 1.5em;
     color: #FFFFFF;
-    text-align: justify;
-    -moz-hyphens: auto;
-    -webkit-hyphens: auto;
-    -ms-hyphens: auto;
+    text-align: center;
+    //-moz-hyphens: auto;
+    //-webkit-hyphens: auto;
+    //-ms-hyphens: auto;
     padding: 10px 20px 0;
   }
 
@@ -99,7 +99,7 @@
     box-shadow: 0 4px 0 #04332C;
     border-radius: 60px;
     width: 200px;
-    margin: @mt auto 40px;
+    margin: @mt auto 20px;
     padding: 15px;
 
     /* Text */
@@ -121,6 +121,19 @@
     &.pressed {
       box-shadow: 0 1px 0 #04332C;
       margin-top: @mt+3;
+    }
+  }
+
+  #reset-progress {
+    font-family: 'Roboto', sans-serif;
+    font-size: 12px;
+    color: #ffffff;
+    text-align: center;
+    padding: 15px 0;
+    opacity: 0.5;
+
+    &:hover {
+      opacity: 1;
     }
   }
 
