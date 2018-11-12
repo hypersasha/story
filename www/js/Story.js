@@ -235,6 +235,7 @@ class Story {
             this.sceneManager.ShowSceneById('game-rules');
             setTimeout(() => {
                 this.sceneManager.HideSceneById('game-rules');
+                this.sceneManager.ShowSceneById('chat');
                 setTimeout(() => {this.PreloadStoryFromProgress();}, 2000);
             }, 7000);
         }, 3000);

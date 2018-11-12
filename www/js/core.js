@@ -51,6 +51,10 @@ let scenesConfig = {
     "typing-scene": {
         id: "typing-scene",
         visible: false
+    },
+    "chat": {
+        id: 'chat',
+        visible: false
     }
 };
 
