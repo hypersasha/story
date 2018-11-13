@@ -90,7 +90,7 @@ class StoryLoader {
 StoryLoader.library = [
     {
         story: 'astroneer-episode-1',
-        storyLink: 'assets/stories/nwre0x2g.json',
+        storyLink: 'assets/stories/conditionTest.json',
         episodeSubtitle: 'эпизод 1',
         episodeTitle: 'Сквозь звёзды',
         hero: "Скотт Майлз"
@@ -101,7 +101,10 @@ class Story {
     constructor(sm) {
         this.progress = {
             story: null,
-            nodes: []
+            nodes: [],
+            extras: {
+                milestone: true
+            }
         };
         this.story = null;
         this.sceneManager = sm;
@@ -109,10 +112,6 @@ class Story {
     }
 
     LoadProgress() {
-
-        // Show Darker TODO: uncomment
-        this.sceneManager.ShowDarker();
-
         let progress = StoryLoader.GetUserProgress();
         console.log('User progress: ', progress);
 
@@ -121,6 +120,10 @@ class Story {
             this.progress.story = StoryLoader.GetFirstEpisode().story;
         } else {
             this.progress = progress;
+            // Initialize extras
+            if (!this.progress.extras) {
+                this.progress.extras = {}
+            }
         }
 
         // Load json story
@@ -139,9 +142,9 @@ class Story {
                     document.getElementById('episode-maintitle').innerHTML = StoryLoader.GetStoryById(this.progress.story)[0].episodeTitle;
 
                     // TODO: uncomment
-                    this.PlayIntroScenes();
+                    // this.PlayIntroScenes();
 
-                    // this.PreloadStoryFromProgress();
+                    this.PreloadStoryFromProgress();
                 })
                 .catch((error) => {});
         } else {
@@ -229,6 +232,7 @@ class Story {
     }
 
     PlayIntroScenes() {
+        this.sceneManager.ShowDarker();
         this.sceneManager.HideDarker(5000);
         this.sceneManager.HideSceneById('intro-scene');
         setTimeout(() => {
@@ -243,13 +247,67 @@ class Story {
 }
 
 class StoryNode {
+
     constructor(node, edges, story, author, preload) {
         this.node = node;
         this.story = story;
+
+        let nodeContent = this.node.content;
+        if (nodeContent) {
+            console.log('Getting actions from node...', nodeContent);
+            let parsedContent = ActionCompiler.GetActionFromContent(nodeContent);
+            this.actions = parsedContent.actions;
+            console.log(this.actions);
+
+            // Update node content with cleared message
+            this.node.content = ActionCompiler.CompileVariables(parsedContent.message, StoryNode.ActionCompilerTags);
+
+            // Run all actions before render.
+            if (this.actions && !preload) {
+                this.RunActions(this.actions);
+            }
+        }
+
+        // Getting Actions from node's edges.
+        if (edges) {
+            console.log('Getting actions from edges...');
+            let actions = null;
+            edges.forEach((edge) => {
+                if (edge.content) {
+                    // Try to find any actions in edge content
+                    let parsedContent = ActionCompiler.GetActionFromContent(edge.content);
+                    actions =  parsedContent.actions;
+                    console.log('Edge '+edge.id+' actions:');
+                    console.log(actions);
+                    edge.content = ActionCompiler.CompileVariables(parsedContent.message, StoryNode.ActionCompilerTags);
+                }
+            });
+
+            // Run all edges actions.
+            if (actions && !preload) {
+                this.RunActions(actions);
+            }
+        }
+
+        // Render edges
         this.edges = new NodeEdges(edges, story, author, preload);
+
         this.message = this.CreateMessage(this.node.content, (author !== undefined ? author : this.story.hero));
         this.chatNode = this.CreateChatNode();
-        this.PrintMessage();
+
+        // if we don't have message text -> Don't render it.
+        if (this.node.content && this.node.content.length > 0) {
+            this.PrintMessage();
+        }
+    }
+
+    RunActions(actions) {
+        actions.forEach((actionString) => {
+            let act = new ActionCompiler(actionString, StoryNode.ActionCompilerTags);
+            act.GetActionCode();
+            act.CompileActionCode();
+            ActionCompiler.RunAction.bind(this)(act.compiledAction);
+        });
     }
 
     CreateMessage(text, author) {
@@ -258,7 +316,8 @@ class StoryNode {
 
         let msgText = document.createElement('div');
         msgText.className = 'message-text';
-        msgText.innerHTML = text;
+        msgText.innerHTML = eval('`' + text + '`');
+
 
         let msgAuthor = document.createElement('div');
         msgAuthor.className = 'message-author';
@@ -289,6 +348,11 @@ class StoryNode {
     }
 }
 
+StoryNode.ActionCompilerTags = {
+    '$STORY': 'this.story',
+    '$EXTRAS': 'this.story.progress.extras'
+};
+
 class NodeEdges {
     constructor(edges, story, author, preload) {
 
@@ -301,7 +365,10 @@ class NodeEdges {
         this.replies = document.createElement('div');
         this.replies.className = 'replies';
         edges.map(edge => {
-            this.replies.appendChild(this.CreateEdgeButton(edge, preload));
+            let edgeButton = this.CreateEdgeButton(edge, preload);
+            if (edgeButton.innerHTML && edgeButton.innerHTML !== "null" && edgeButton.innerHTML.length > 0) {
+                this.replies.appendChild(this.CreateEdgeButton(edge, preload));
+            }
         });
 
         // Lets add hint
@@ -323,7 +390,7 @@ class NodeEdges {
         let elem = document.createElement('div');
         elem.id = 'edge-' + edge.id;
         elem.className = 'replies--button' + (edge.to_node_id === preload ? ' activated' : '');
-        elem.innerHTML = edge.content;
+        elem.innerHTML = ActionCompiler.EvalVariables.bind(this)(edge.content);
         elem.addEventListener('touchend', () => {
             this.OnReply(elem, edge);
         });

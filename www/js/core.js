@@ -25,7 +25,7 @@ let scenesConfig = {
         }
     },
     "intro-scene": {
-        visible: true,
+        visible: false,
         id: "intro-scene",
         showAnimation: {
             name: 'fadeIn',
@@ -54,7 +54,7 @@ let scenesConfig = {
     },
     "chat": {
         id: 'chat',
-        visible: false
+        visible: true
     }
 };
 
@@ -88,4 +88,5 @@ if (StoryLoader.CheckUserProgress()) {
     resetButton.style.display = 'none';
 }
 
-// startStory();
+// TODO: comment this
+startStory();

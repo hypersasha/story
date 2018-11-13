@@ -33,9 +33,18 @@ class SceneManager {
 
     }
 
-    ForceHideScene(scene_id) {
-        let sceneElement = document.getElementById(scene_id);
-        sceneElement.style.display = 'none';
+    ForceHideScene(scene_id, delay) {
+        setTimeout(() => {
+            let sceneElement = document.getElementById(scene_id);
+            sceneElement.style.display = 'none';
+        }, delay || 0);
+    }
+
+    ForceShowScene(scene_id, delay) {
+        setTimeout(() => {
+            let sceneElement = document.getElementById(scene_id);
+            sceneElement.style.removeProperty('display');
+        }, delay || 0);
     }
 
     HideSceneById(scene_id) {
