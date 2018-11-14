@@ -90,7 +90,7 @@ class StoryLoader {
 StoryLoader.library = [
     {
         story: 'astroneer-episode-1',
-        storyLink: 'assets/stories/conditionTest.json',
+        storyLink: 'assets/stories/condition_test.json',
         episodeSubtitle: 'эпизод 1',
         episodeTitle: 'Сквозь звёзды',
         hero: "Скотт Майлз"
@@ -174,22 +174,6 @@ class Story {
 
         console.log(node);
 
-        // Update user progress
-        // We don't need to change user progress on story preload.
-        if (!preload) {
-            console.log("Updating user progress...");
-
-            if (!this.progress.nodes) {
-                this.progress.nodes = [];
-            }
-
-            this.progress.nodes.push(node_id);
-            console.log(this.progress);
-
-            // Save user progress
-            StoryLoader.SaveUserProgress(this.progress);
-        }
-
         // Parse feedback
         let typingDelay = 2000;
         let author = undefined;
@@ -206,12 +190,28 @@ class Story {
         // Show typing scene
         // But only in story mode, not preload
         if (!preload) {
-            this.sceneManager.ShowSceneById('typing-scene');
-            document.getElementById('typing-scene').scrollIntoView({behavior: "smooth"});
-
+            this.sceneManager.ForceShowScene('typing-scene');
+            setTimeout(() => {document.getElementById('typing-scene').scrollIntoView({behavior: "smooth"})}, 100);
             setTimeout(() => {
-                this.sceneManager.HideSceneById('typing-scene');
+                this.sceneManager.ForceHideScene('typing-scene');
                 node = new StoryNode(node, edges, this, author);
+
+                // Update user progress
+                // We don't need to change user progress on story preload.
+                if (!preload) {
+                    console.log("Updating user progress...");
+
+                    if (!this.progress.nodes) {
+                        this.progress.nodes = [];
+                    }
+
+                    this.progress.nodes.push(node_id);
+                    console.log(this.progress);
+
+                    // Save user progress
+                    StoryLoader.SaveUserProgress(this.progress);
+                }
+
             }, typingDelay);
         } else {
             // Just show story node
@@ -265,27 +265,6 @@ class StoryNode {
             // Run all actions before render.
             if (this.actions && !preload) {
                 this.RunActions(this.actions);
-            }
-        }
-
-        // Getting Actions from node's edges.
-        if (edges) {
-            console.log('Getting actions from edges...');
-            let actions = null;
-            edges.forEach((edge) => {
-                if (edge.content) {
-                    // Try to find any actions in edge content
-                    let parsedContent = ActionCompiler.GetActionFromContent(edge.content);
-                    actions =  parsedContent.actions;
-                    console.log('Edge '+edge.id+' actions:');
-                    console.log(actions);
-                    edge.content = ActionCompiler.CompileVariables(parsedContent.message, StoryNode.ActionCompilerTags);
-                }
-            });
-
-            // Run all edges actions.
-            if (actions && !preload) {
-                this.RunActions(actions);
             }
         }
 
@@ -350,7 +329,8 @@ class StoryNode {
 
 StoryNode.ActionCompilerTags = {
     '$STORY': 'this.story',
-    '$EXTRAS': 'this.story.progress.extras'
+    '$EXTRAS': 'this.story.progress.extras',
+    '$EDGE': 'this.edge'
 };
 
 class NodeEdges {
@@ -364,6 +344,7 @@ class NodeEdges {
 
         this.replies = document.createElement('div');
         this.replies.className = 'replies';
+
         edges.map(edge => {
             let edgeButton = this.CreateEdgeButton(edge, preload);
             if (edgeButton.innerHTML && edgeButton.innerHTML !== "null" && edgeButton.innerHTML.length > 0) {
@@ -371,13 +352,15 @@ class NodeEdges {
             }
         });
 
-        // Lets add hint
-        this.hint = document.createElement('div');
-        this.hint.className = 'hint';
-        let hintTextWaiting = (author !== undefined ? author : this.story.hero.split(' ')[0]) + ' ждёт Вашего ответа';
-        let hintTextDone = "Вы ответили";
-        this.hint.innerHTML = (typeof (preload) !== 'number' ? hintTextWaiting : hintTextDone);
-        this.replyBox.appendChild(this.hint);
+        // Add hint if any replies exists.
+        if (this.replies.childElementCount > 0) {
+            this.hint = document.createElement('div');
+            this.hint.className = 'hint';
+            let hintTextWaiting = (author !== undefined ? author : this.story.hero.split(' ')[0]) + ' ждёт Вашего ответа';
+            let hintTextDone = "Вы ответили";
+            this.hint.innerHTML = (typeof (preload) !== 'number' ? hintTextWaiting : hintTextDone);
+            this.replyBox.appendChild(this.hint);
+        }
 
         this.replyBox.appendChild(this.replies);
     }
@@ -387,6 +370,27 @@ class NodeEdges {
     }
 
     CreateEdgeButton(edge, preload) {
+
+        // First start actions
+        if (edge) {
+            let actions;
+            if (edge.content) {
+                let parsedContent = ActionCompiler.GetActionFromContent(edge.content);
+                actions =  parsedContent.actions;
+                console.log('Edge '+edge.id+' actions:');
+                console.log(actions);
+                edge.content = ActionCompiler.CompileVariables(parsedContent.message, StoryNode.ActionCompilerTags);
+            }
+
+            // Run all edges actions.
+            if (actions && !preload) {
+                this.edge = edge; // Set this edge as current.
+                this.RunActions(actions);
+            } else {
+                console.info("No actions on this edge...");
+            }
+        }
+
         let elem = document.createElement('div');
         elem.id = 'edge-' + edge.id;
         elem.className = 'replies--button' + (edge.to_node_id === preload ? ' activated' : '');
@@ -396,6 +400,15 @@ class NodeEdges {
         });
 
         return elem;
+    }
+
+    RunActions(actions) {
+        actions.forEach((actionString) => {
+            let act = new ActionCompiler(actionString, StoryNode.ActionCompilerTags);
+            act.GetActionCode();
+            act.CompileActionCode();
+            ActionCompiler.RunAction.bind(this)(act.compiledAction);
+        });
     }
 
     OnReply(button, edge) {
