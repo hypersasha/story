@@ -25,13 +25,13 @@ class UIController {
 
     OnButtonReleased(button, callback, remove_class) {
 
-        /*button.addEventListener('mouseup', () => {
-            button.classList.remove(remove_class);
-
-            if (callback) {
-                callback();
-            }
-        });*/
+        // button.addEventListener('mouseup', () => {
+        //     button.classList.remove(remove_class);
+        //
+        //     if (callback) {
+        //         callback();
+        //     }
+        // });
 
         button.addEventListener('touchend', () => {
             if (remove_class) {

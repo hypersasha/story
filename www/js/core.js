@@ -2,7 +2,7 @@
 let scenesConfig = {
     "dark": {
         id: 'dark',
-        visible: false,
+        visible: true,
         showAnimation: {
             name: 'fadeIn',
             duration: 3000
@@ -21,16 +21,20 @@ let scenesConfig = {
         },
         hideAnimation: {
             name: 'fadeOut',
-            duration: 3000
+            duration: 4000
+        }
+    },
+    "game-loading": {
+        visible: false,
+        id: 'game-loading',
+        hideAnimation: {
+            name: 'fadeOut',
+            duration: 2000
         }
     },
     "intro-scene": {
-        visible: false,
+        visible: true,
         id: "intro-scene",
-        showAnimation: {
-            name: 'fadeIn',
-            duration: 10
-        },
         hideAnimation: {
             name: 'fadeOut',
             duration: 2000
@@ -54,7 +58,7 @@ let scenesConfig = {
     },
     "chat": {
         id: 'chat',
-        visible: true
+        visible: false
     }
 };
 
@@ -67,19 +71,24 @@ let startButton = document.getElementById('start-story');
 let resetButton = document.getElementById('reset-progress');
 
 let uiController = new UIController();
-uiController.OnButtonPressed(startButton, null, 'pressed');
-uiController.OnButtonReleased(startButton, () => {startStory()}, 'pressed');
+uiController.OnButtonPressed(startButton, () => {startStory()}, 'pressed');
+uiController.OnButtonReleased(startButton, null, 'pressed');
 uiController.OnButtonReleased(resetButton, () => {
     StoryLoader.RemoveUserProgress();
     startButton.innerHTML = 'Начать историю';
     resetButton.style.display = 'none';
 });
 
+
+let vkAuth = new VKAuth();
+
 let story;
 
 function startStory() {
-    story = new Story(sceneManager);
-    story.LoadProgress();
+    if (!story) {
+        story = new Story(sceneManager, vkAuth);
+        story.LoadProgress();
+    }
 }
 
 if (StoryLoader.CheckUserProgress()) {
@@ -89,4 +98,4 @@ if (StoryLoader.CheckUserProgress()) {
 }
 
 // TODO: comment this
-startStory();
+// startStory();

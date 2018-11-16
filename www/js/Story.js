@@ -98,7 +98,7 @@ StoryLoader.library = [
 ];
 
 class Story {
-    constructor(sm) {
+    constructor(sm, vk) {
         this.progress = {
             story: null,
             nodes: [],
@@ -108,6 +108,7 @@ class Story {
         };
         this.story = null;
         this.sceneManager = sm;
+        this.vk = vk;
         this.hero = undefined;
     }
 
@@ -141,10 +142,11 @@ class Story {
                     document.getElementById('episode-subtitle').innerHTML = StoryLoader.GetStoryById(this.progress.story)[0].episodeSubtitle;
                     document.getElementById('episode-maintitle').innerHTML = StoryLoader.GetStoryById(this.progress.story)[0].episodeTitle;
 
-                    // TODO: uncomment
-                    // this.PlayIntroScenes();
+                    // TODO: uncomment on Release
+                    this.PlayIntroScenes();
 
-                    this.PreloadStoryFromProgress();
+                    // Comment this on release.
+                    // this.PreloadStoryFromProgress();
                 })
                 .catch((error) => {});
         } else {
@@ -155,12 +157,31 @@ class Story {
     PreloadStoryFromProgress() {
         if (this.progress.nodes && this.progress.nodes.length > 0) {
             let nodes = this.progress.nodes;
+            let nodesLoaded = 0;
             nodes.forEach((p_node, it) => {
-                this.LoadStoryNode(p_node, (nodes[it + 1] ? nodes[it + 1] : true)); // second argument is Preload flag
+                let preload = (nodes[it + 1] ? nodes[it + 1] : true);
+                this.LoadStoryNode(p_node, preload); // second argument is Preload flag
+                nodesLoaded++;
+            });
+
+            return new Promise((resolve, reject) => {
+                if (nodesLoaded === nodes.length) {
+                    resolve({loaded: nodesLoaded});
+                } else {
+                    reject({error: 'Only ' + nodesLoaded + ' nodes of ' + nodes.length + ' were loaded.'})
+                }
             });
         } else {
             let initialNode = this.story.nodes[this.story.initial_node_index - 1];
             this.LoadStoryNode(initialNode.id);
+
+            return new Promise((resolve, reject) => {
+                if (initialNode) {
+                    resolve({loaded: 1});
+                } else {
+                    reject({error: 'Cannot load initial node!'});
+                }
+            });
         }
     }
 
@@ -239,10 +260,25 @@ class Story {
             this.sceneManager.ShowSceneById('game-rules');
             setTimeout(() => {
                 this.sceneManager.HideSceneById('game-rules');
+                setTimeout(() => {this.sceneManager.ShowSceneById('game-loading')}, 1000);
                 this.sceneManager.ShowSceneById('chat');
-                setTimeout(() => {this.PreloadStoryFromProgress();}, 2000);
+                setTimeout(() => {
+                    this.PreloadStoryFromProgress()
+                        .then((resolve) => {
+                            setTimeout(() => {
+                                this.sceneManager.HideSceneById('game-loading');
+                            }, 5000);
+                        })
+                        .catch((error) => {
+                            console.error(error);
+                        });
+                    }, 2000);
             }, 7000);
         }, 3000);
+    }
+
+    ShowEpisodeTitle() {
+        this.sceneManager.ForceShowScene('episode-title', 2000);
     }
 }
 
@@ -263,7 +299,10 @@ class StoryNode {
             this.node.content = ActionCompiler.CompileVariables(parsedContent.message, StoryNode.ActionCompilerTags);
 
             // Run all actions before render.
-            if (this.actions && !preload) {
+            let lastNodeInProgress = this.story.progress.nodes[this.story.progress.nodes.length-1];
+
+            // Actions cannot be executed in preload, but not for last node.
+            if (this.actions && (!preload || (node.id === lastNodeInProgress))) {
                 this.RunActions(this.actions);
             }
         }
@@ -330,7 +369,8 @@ class StoryNode {
 StoryNode.ActionCompilerTags = {
     '$STORY': 'this.story',
     '$EXTRAS': 'this.story.progress.extras',
-    '$EDGE': 'this.edge'
+    '$EDGE': 'this.edge',
+    '$VK': 'this.story.vk'
 };
 
 class NodeEdges {

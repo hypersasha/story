@@ -1,0 +1,15 @@
+.vk {
+  position: fixed;
+  width: 100%;
+  z-index: 99999999;
+}
+.vk-init-error {
+  display: none;
+  color: #FFFFFF;
+  font-size: 12px;
+  text-align: center;
+  background: crimson;
+  font-family: 'Roboto', sans-serif;
+  padding: 4px 0;
+  font-weight: 700;
+}

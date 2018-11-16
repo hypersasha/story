@@ -15,7 +15,7 @@ class SceneManager {
         }
 
         // Now  hide darker.
-        // this.HideDarker(0);
+        this.HideDarker(1200);
     }
 
     ShowDarker(delay) {
@@ -36,14 +36,14 @@ class SceneManager {
     ForceHideScene(scene_id, delay) {
         setTimeout(() => {
             let sceneElement = document.getElementById(scene_id);
-            sceneElement.style.display = 'none';
+            $(sceneElement).hide();
         }, delay || 0);
     }
 
     ForceShowScene(scene_id, delay) {
         setTimeout(() => {
             let sceneElement = document.getElementById(scene_id);
-            sceneElement.style.removeProperty('display');
+            $(sceneElement).show();
         }, delay || 0);
     }
 
@@ -52,23 +52,19 @@ class SceneManager {
 
         let scene = this.scenes[scene_id];
         if (scene && scene.hideAnimation && scene.hideAnimation.duration) {
-            sceneElement.style.animationDuration = scene.hideAnimation.duration + 'ms';
-            sceneElement.classList.add('animated', scene.hideAnimation.name);
 
-            setTimeout(() => {
+            /*sceneElement.style.animationDuration = scene.hideAnimation.duration + 'ms';
+            sceneElement.classList.add('animated', scene.hideAnimation.name);*/
+
+            $(sceneElement).fadeOut(scene.hideAnimation.duration);
+
+            /*setTimeout(() => {
                 this.ForceHideScene(scene_id);
                 this.ResetHideAnimationStyles(scene_id);
-            }, scene.hideAnimation.duration)
+            }, scene.hideAnimation.duration)*/
         } else {
             this.ForceHideScene(scene_id);
         }
-    }
-
-    ResetHideAnimationStyles(scene_id) {
-        let scene = this.scenes[scene_id];
-        let sceneElement = document.getElementById(scene_id);
-        sceneElement.classList.remove(scene.hideAnimation.name);
-        sceneElement.style.removeProperty('animation-duration');
     }
 
     ShowSceneById(scene_id) {
@@ -76,22 +72,17 @@ class SceneManager {
 
         // Try to find show animation
         if (this.scenes[scene_id] && this.scenes[scene_id].showAnimation && this.scenes[scene_id].showAnimation.duration) {
-            sceneElement.style.animationDuration = this.scenes[scene_id].showAnimation.duration + 'ms';
+
+            $(sceneElement).fadeIn(this.scenes[scene_id].showAnimation.duration);
+
+            /*sceneElement.style.animationDuration = this.scenes[scene_id].showAnimation.duration + 'ms';
             sceneElement.classList.add('animated', this.scenes[scene_id].showAnimation.name);
 
             setTimeout(() => {
                 this.ResetShowAnimationStyles(scene_id)
-            }, this.scenes[scene_id].showAnimation.duration)
+            }, this.scenes[scene_id].showAnimation.duration)*/
+        } else {
+            $(sceneElement).show();
         }
-
-        // Show object
-        sceneElement.style.removeProperty('display');
-    }
-
-    ResetShowAnimationStyles(scene_id) {
-        let scene = this.scenes[scene_id];
-        let sceneElement = document.getElementById(scene_id);
-        sceneElement.classList.remove(scene.showAnimation.name);
-        sceneElement.style.removeProperty('animation-duration');
     }
 }
