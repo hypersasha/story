@@ -9,6 +9,7 @@ class VKAuth {
         }, () => {
             let error = document.getElementById('vk-init-err');
             $(error).show();
+            setTimeout(() => {$(error).hide()}, 2500);
         }, '5.87');
     }
 

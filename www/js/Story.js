@@ -90,10 +90,10 @@ class StoryLoader {
 StoryLoader.library = [
     {
         story: 'astroneer-episode-1',
-        storyLink: 'assets/stories/condition_test.json',
+        storyLink: 'assets/stories/astroneer-ep1.json',
         episodeSubtitle: 'эпизод 1',
         episodeTitle: 'Сквозь звёзды',
-        hero: "Скотт Майлз"
+        hero: "Кто-то"
     }
 ];
 
@@ -172,7 +172,9 @@ class Story {
                 }
             });
         } else {
-            let initialNode = this.story.nodes[this.story.initial_node_index - 1];
+            let initialNode = this.GetNodeByIndex(this.story.initial_node_index)[0];
+            console.log('Initial node');
+            console.log(initialNode);
             this.LoadStoryNode(initialNode.id);
 
             return new Promise((resolve, reject) => {
@@ -248,6 +250,10 @@ class Story {
         return this.story.nodes.filter((node) => node.id === id);
     }
 
+    GetNodeByIndex(index) {
+        return this.story.nodes.filter((node) => node.index === index);
+    }
+
     GetEdgesByIds(edges_to_find) {
         return this.story.edges.filter(edge => edges_to_find.indexOf(edge.id) >= 0);
     }
@@ -278,7 +284,7 @@ class Story {
     }
 
     ShowEpisodeTitle() {
-        this.sceneManager.ForceShowScene('episode-title', 2000);
+        this.sceneManager.ForceShowScene('episode-title', 3000);
     }
 }
 
@@ -289,6 +295,7 @@ class StoryNode {
         this.story = story;
 
         let nodeContent = this.node.content;
+        let lastNodeInProgress = this.story.progress.nodes[this.story.progress.nodes.length-1];
         if (nodeContent) {
             console.log('Getting actions from node...', nodeContent);
             let parsedContent = ActionCompiler.GetActionFromContent(nodeContent);
@@ -298,9 +305,6 @@ class StoryNode {
             // Update node content with cleared message
             this.node.content = ActionCompiler.CompileVariables(parsedContent.message, StoryNode.ActionCompilerTags);
 
-            // Run all actions before render.
-            let lastNodeInProgress = this.story.progress.nodes[this.story.progress.nodes.length-1];
-
             // Actions cannot be executed in preload, but not for last node.
             if (this.actions && (!preload || (node.id === lastNodeInProgress))) {
                 this.RunActions(this.actions);
@@ -308,7 +312,7 @@ class StoryNode {
         }
 
         // Render edges
-        this.edges = new NodeEdges(edges, story, author, preload);
+        this.edges = new NodeEdges(edges, story, author, preload, (node.id === lastNodeInProgress));
 
         this.message = this.CreateMessage(this.node.content, (author !== undefined ? author : this.story.hero));
         this.chatNode = this.CreateChatNode();
@@ -374,10 +378,11 @@ StoryNode.ActionCompilerTags = {
 };
 
 class NodeEdges {
-    constructor(edges, story, author, preload) {
+    constructor(edges, story, author, preload, lastNodeInProgress) {
 
         this.answered = !(typeof (preload) !== 'number');
         this.story = story;
+        this.lastNodeInProgress = lastNodeInProgress;
 
         this.replyBox = document.createElement('div');
         this.replyBox.className = 'reply-box animated delay-1s fadeIn' + (typeof (preload) === 'number' ? ' answered' : '');
@@ -423,7 +428,7 @@ class NodeEdges {
             }
 
             // Run all edges actions.
-            if (actions && !preload) {
+            if (actions && (!preload || this.lastNodeInProgress)) {
                 this.edge = edge; // Set this edge as current.
                 this.RunActions(actions);
             } else {
