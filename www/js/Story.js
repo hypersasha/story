@@ -200,11 +200,13 @@ class Story {
         // Parse feedback
         let typingDelay = 2000;
         let author = undefined;
+        let pause = 1000;
         if (node.feedback) {
             let feedback = this.ParseFeedback(node.feedback);
             if (feedback) {
                 if (feedback.delay) typingDelay = parseInt(feedback.delay) || 2000;
                 if (feedback.author) author = feedback.author.toString();
+                if (feedback.pause) pause = parseInt(feedback.pause) || 1000;
             }
         }
 
@@ -213,29 +215,32 @@ class Story {
         // Show typing scene
         // But only in story mode, not preload
         if (!preload) {
-            this.sceneManager.ForceShowScene('typing-scene');
-            setTimeout(() => {document.getElementById('typing-scene').scrollIntoView({behavior: "smooth"})}, 100);
+            // Pause timeout.
             setTimeout(() => {
-                this.sceneManager.ForceHideScene('typing-scene');
-                node = new StoryNode(node, edges, this, author);
+                this.sceneManager.ForceShowScene('typing-scene');
+                setTimeout(() => {$('#typing-scene').scrollintoview()}, 100);
+                setTimeout(() => {
+                    this.sceneManager.ForceHideScene('typing-scene');
+                    node = new StoryNode(node, edges, this, author);
 
-                // Update user progress
-                // We don't need to change user progress on story preload.
-                if (!preload) {
-                    console.log("Updating user progress...");
+                    // Update user progress
+                    // We don't need to change user progress on story preload.
+                    if (!preload) {
+                        console.log("Updating user progress...");
 
-                    if (!this.progress.nodes) {
-                        this.progress.nodes = [];
+                        if (!this.progress.nodes) {
+                            this.progress.nodes = [];
+                        }
+
+                        this.progress.nodes.push(node_id);
+                        console.log(this.progress);
+
+                        // Save user progress
+                        StoryLoader.SaveUserProgress(this.progress);
                     }
 
-                    this.progress.nodes.push(node_id);
-                    console.log(this.progress);
-
-                    // Save user progress
-                    StoryLoader.SaveUserProgress(this.progress);
-                }
-
-            }, typingDelay);
+                }, typingDelay);
+            }, pause);
         } else {
             // Just show story node
             node = new StoryNode(node, edges, this, author, preload);

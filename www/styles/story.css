@@ -93,10 +93,6 @@
   -o-transition: opacity 0.2s;
   transition: opacity 0.2s;
 }
-.story .intro-scene .start-story:hover {
-  opacity: 0.7;
-  cursor: pointer;
-}
 .story .intro-scene .start-story.pressed {
   opacity: 0.7;
 }
