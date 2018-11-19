@@ -3,7 +3,9 @@ class UIController {
     }
 
     OnButtonPressed(button, callback, add_class) {
-        button.addEventListener('touchstart', () => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log(e);
             if (add_class) {
                 $(button).addClass(add_class);
             }
@@ -15,7 +17,8 @@ class UIController {
     }
 
     OnButtonReleased(button, callback, remove_class) {
-        button.addEventListener('touchend', () => {
+        button.addEventListener('touchend', (e) => {
+            e.preventDefault();
             if (remove_class) {
                 $(button).removeClass(remove_class);
             }

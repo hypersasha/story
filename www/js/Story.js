@@ -1,3 +1,5 @@
+let APP_VERSION = '0.0.1f';
+
 class StoryLoader {
     constructor() {
     }
@@ -15,6 +17,18 @@ class StoryLoader {
             return true;
         } else {
             return false;
+        }
+    }
+
+    /**
+     * This method removes all user progress if
+     * new version of app is available.
+     * @constructor
+     */
+    static RemoveProgressOnApplicationUpdate() {
+        let progress = StoryLoader.GetUserProgress();
+        if (progress && progress.version !== APP_VERSION) {
+            StoryLoader.RemoveUserProgress();
         }
     }
 
@@ -93,9 +107,17 @@ StoryLoader.library = [
         storyLink: 'assets/stories/astroneer-ep1.json',
         episodeSubtitle: 'эпизод 1',
         episodeTitle: 'Сквозь звёзды',
-        hero: "Кто-то"
+        hero: "Собеседник"
     }
 ];
+
+if (!Date.now) {
+    Date.now = function() { return new Date().getTime(); }
+}
+
+function getCurrentTimestamp() {
+    return Math.floor(Date.now() / 1000);
+}
 
 class Story {
     constructor(sm, vk) {
@@ -104,7 +126,8 @@ class Story {
             nodes: [],
             extras: {
                 milestone: true
-            }
+            },
+            version: APP_VERSION
         };
         this.story = null;
         this.sceneManager = sm;
@@ -188,6 +211,19 @@ class Story {
     }
 
     LoadStoryNode(node_id, preload) {
+
+        // Checking if our hero is busy.
+        if (this.progress && this.progress.heroBusy && !preload) {
+            let isBusy = this.IsHeroBusy();
+            if (isBusy) {
+                console.info('Hero busy for ' + (this.progress.heroBusy - getCurrentTimestamp()));
+                setTimeout(() => {
+                    this.LoadStoryNode(node_id, preload);
+                }, 10000);
+                return false;
+            }
+        }
+
         console.log('Loading next node...');
         let node = this.GetNodeById(node_id)[0];
         if (!node) {
@@ -263,6 +299,25 @@ class Story {
         return this.story.edges.filter(edge => edges_to_find.indexOf(edge.id) >= 0);
     }
 
+    SetHeroBusy(seconds) {
+        let currentTime = Math.floor(Date.now() / 1000);
+        let busyTime = currentTime + seconds;
+        if (this.progress) {
+            if (this.progress.heroBusy === undefined) {
+                this.progress.heroBusy = busyTime;
+                StoryLoader.SaveUserProgress(this.progress);
+            }
+        }
+    }
+
+    IsHeroBusy() {
+        let currentTime = Math.floor(Date.now() / 1000);
+        if (currentTime > this.progress.heroBusy) {
+            this.progress.heroBusy = undefined;
+        }
+        return (currentTime < this.progress.heroBusy);
+    }
+
     PlayIntroScenes() {
         this.sceneManager.ShowDarker();
         this.sceneManager.HideDarker(5000);
@@ -276,9 +331,10 @@ class Story {
                 setTimeout(() => {
                     this.PreloadStoryFromProgress()
                         .then((resolve) => {
+                            window.scrollTo(0, document.body.scrollHeight);
                             setTimeout(() => {
                                 this.sceneManager.HideSceneById('game-loading');
-                            }, 5000);
+                            }, 1000);
                         })
                         .catch((error) => {
                             console.error(error);
@@ -290,6 +346,7 @@ class Story {
 
     ShowEpisodeTitle() {
         this.sceneManager.ForceShowScene('episode-title', 3000);
+        this.sceneManager.HideSceneById('episode-title', 10000);
     }
 }
 
@@ -319,12 +376,24 @@ class StoryNode {
         // Render edges
         this.edges = new NodeEdges(edges, story, author, preload, (node.id === lastNodeInProgress));
 
-        this.message = this.CreateMessage(this.node.content, (author !== undefined ? author : this.story.hero));
+        let control_point = false;
+        let author_message = false;
+        if (this.node.feedback) {
+            let feedback = story.ParseFeedback(this.node.feedback);
+            if (feedback.control_point) {
+                control_point = true;
+            }
+            if (feedback.author_message) {
+                author_message = feedback.author_message;
+            }
+        }
+
+        this.message = this.CreateMessage(this.node.content, (author !== undefined ? author : this.story.hero), control_point, author_message);
         this.chatNode = this.CreateChatNode();
 
         // if we don't have message text -> Don't render it.
         if (this.node.content && this.node.content.length > 0) {
-            this.PrintMessage();
+            this.PrintMessage(preload);
         }
     }
 
@@ -337,9 +406,18 @@ class StoryNode {
         });
     }
 
-    CreateMessage(text, author) {
+    CreateMessage(text, author, control_point, author_message) {
         let msg = document.createElement('div');
         msg.className = 'message';
+
+        // Add control point mention.
+        if (control_point) {
+            console.info('Control point detected!');
+            let ctrlPoint = document.createElement('div');
+            ctrlPoint.className = 'control-point';
+            ctrlPoint.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"></path><path d="M14 4l2.29 2.29-2.88 2.88 1.42 1.42 2.88-2.88L20 10V4zm-4 0H4v6l2.29-2.29 4.71 4.7V20h2v-8.41l-5.29-5.3z" fill="#FFFFFF"></path></svg><span>Ваша история меняется.</span>';
+            msg.appendChild(ctrlPoint);
+        }
 
         let msgText = document.createElement('div');
         msgText.className = 'message-text';
@@ -353,6 +431,14 @@ class StoryNode {
         msg.appendChild(msgText);
         msg.appendChild(msgAuthor);
 
+
+        // Append Author message
+        if (author_message) {
+            let authorMsg = document.createElement('div');
+            authorMsg.className = 'author-message';
+            authorMsg.innerHTML = author_message;
+            msg.appendChild(authorMsg);
+        }
 
         // Append reply box
         msg.appendChild(this.edges.GetEdges());
@@ -368,10 +454,12 @@ class StoryNode {
         return chatNode;
     }
 
-    PrintMessage() {
+    PrintMessage(preload) {
         let chat = document.getElementById('chat');
         chat.appendChild(this.chatNode);
-        $(this.chatNode).scrollintoview();
+        if (!preload) {
+            $(this.chatNode).scrollintoview();
+        }
     }
 }
 

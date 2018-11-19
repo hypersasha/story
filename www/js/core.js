@@ -72,17 +72,17 @@ let resetButton = document.getElementById('reset-progress');
 
 let uiController = new UIController();
 uiController.OnButtonPressed(startButton, () => {startStory()}, 'pressed');
-uiController.OnButtonReleased(startButton, null, 'pressed');
+// uiController.OnButtonReleased(startButton, null, 'pressed');
 uiController.OnButtonReleased(resetButton, () => {
     StoryLoader.RemoveUserProgress();
     startButton.innerHTML = 'Начать историю';
     resetButton.style.display = 'none';
 });
 
-
 let vkAuth = new VKAuth();
-
 let story;
+
+StoryLoader.RemoveProgressOnApplicationUpdate();
 
 function startStory() {
     if (!story) {
